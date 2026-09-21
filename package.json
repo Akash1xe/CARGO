@@ -1,0 +1,12 @@
+{
+  "name": "cargoflow-test-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend test orchestration for CargoFlow services",
+  "scripts": {
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:integration": "node tests/run-integration.js",
+    "test:e2e": "node tests/run-e2e.js",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e"
+  }
+}

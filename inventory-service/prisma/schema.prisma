@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CapacityStatus {
+  AVAILABLE
+  LOCKED
+  BOOKED
+  CANCELLED
+}
+
+model TripInventory {
+  id                 String   @id @default(uuid())
+  tripId             String   @unique
+  vehicleId          String
+  vehicleNumber      String
+  vehicleName        String
+  vehicleType        String
+  departureDate      DateTime @db.Date
+  totalCapacityUnits Int
+  available          Int
+  locked             Int      @default(0)
+  booked             Int      @default(0)
+  status             String   @default("ACTIVE")
+  version            Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  capacityUnits CapacityUnitInventory[]
+
+  @@index([vehicleId])
+  @@index([tripId, status])
+  @@index([departureDate])
+  @@map("trip_inventories")
+}
+
+model CapacityUnitInventory {
+  id              String         @id @default(uuid())
+  tripInventoryId String
+  tripId          String
+  capacityUnitId  String
+  unitNumber      Int
+  unitType        String
+  price           Float
+  maxWeightKg     Float
+  status          CapacityStatus @default(AVAILABLE)
+  lockedBy        String?
+  lockedAt        DateTime?
+  lockExpiresAt   DateTime?
+  bookingId       String?
+  version         Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tripInventory TripInventory @relation(fields: [tripInventoryId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, capacityUnitId])
+  @@unique([tripId, unitNumber])
+  @@index([tripId, status])
+  @@index([lockExpiresAt, status])
+  @@index([bookingId])
+  @@map("capacity_unit_inventories")
+}
+
+model TripRouteHub {
+  id             String @id @default(uuid())
+  tripId         String
+  hubId          String
+  hubName        String
+  hubCode        String
+  sequenceNumber Int
+
+  @@unique([tripId, hubId])
+  @@unique([tripId, sequenceNumber])
+  @@index([tripId])
+  @@map("trip_route_hubs")
+}
+
+model CapacitySegmentLock {
+  id             String         @id @default(uuid())
+  tripId         String
+  capacityUnitId String
+  fromSeq        Int
+  toSeq          Int
+  status         CapacityStatus @default(LOCKED)
+  lockedBy       String?
+  lockedAt       DateTime?
+  lockExpiresAt  DateTime?
+  bookingId      String?
+  version        Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([tripId, capacityUnitId])
+  @@index([tripId, capacityUnitId, status])
+  @@index([lockExpiresAt, status])
+  @@index([bookingId])
+  @@map("capacity_segment_locks")
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(uuid())
+  eventKey    String   @unique
+  processedAt DateTime @default(now())
+
+  @@index([eventKey])
+  @@map("idempotency_records")
+}

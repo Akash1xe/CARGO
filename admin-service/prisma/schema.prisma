@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model LogisticsHub {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  city      String
+  state     String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routeHubs RouteHub[]
+
+  @@index([name])
+  @@index([code])
+  @@map("logistics_hubs")
+}
+
+model CargoVehicle {
+  id                 String   @id @default(uuid())
+  vehicleNumber      String   @unique
+  vehicleName        String
+  vehicleType        String
+  totalCapacityUnits Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  capacityUnits  CapacityUnit[]
+  transportRoute TransportRoute?
+  cargoTrips     CargoTrip[]
+
+  @@map("cargo_vehicles")
+}
+
+enum CapacityUnitType {
+  STANDARD
+  FRAGILE
+  REFRIGERATED
+  HAZARDOUS
+}
+
+model CapacityUnit {
+  id          String           @id @default(uuid())
+  vehicleId   String
+  unitNumber  Int
+  unitType    CapacityUnitType
+  price       Float
+  maxWeightKg Float
+  createdAt   DateTime         @default(now())
+
+  vehicle CargoVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, unitNumber])
+  @@map("capacity_units")
+}
+
+model TransportRoute {
+  id        String @id @default(uuid())
+  vehicleId String @unique
+
+  vehicle   CargoVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  routeHubs RouteHub[]
+
+  @@map("transport_routes")
+}
+
+model RouteHub {
+  id                   String  @id @default(uuid())
+  transportRouteId     String
+  hubId                String
+  sequenceNumber       Int
+  arrivalTime          String?
+  departureTime        String?
+  distanceFromOriginKm Float   @default(0)
+
+  transportRoute TransportRoute @relation(fields: [transportRouteId], references: [id], onDelete: Cascade)
+  hub            LogisticsHub   @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  @@unique([transportRouteId, sequenceNumber])
+  @@unique([transportRouteId, hubId])
+  @@map("route_hubs")
+}
+
+model CargoTrip {
+  id            String          @id @default(uuid())
+  vehicleId     String
+  departureDate DateTime        @db.Date
+  status        CargoTripStatus @default(ACTIVE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  vehicle CargoVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, departureDate])
+  @@map("cargo_trips")
+}
+
+enum CargoTripStatus {
+  ACTIVE
+  CANCELLED
+}

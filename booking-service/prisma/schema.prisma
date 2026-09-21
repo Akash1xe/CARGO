@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ShipmentBookingStatus {
+  PENDING
+  CAPACITY_HELD
+  PAYMENT_PENDING
+  CONFIRMING
+  CONFIRMED
+  CANCELLING
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum SagaStep {
+  HOLD_CAPACITY
+  CREATE_PAYMENT
+  CONFIRM_CAPACITY
+  COMPLETE
+}
+
+enum SagaStepStatus {
+  PENDING
+  COMPLETED
+  COMPENSATING
+  COMPENSATED
+  FAILED
+}
+
+model ShipmentBooking {
+  id                String                @id @default(uuid())
+  trackingNumber    String                @unique
+  userId            String
+  tripId            String
+  vehicleId         String
+  vehicleNumber     String
+  vehicleName       String
+  vehicleType       String
+  departureDate     DateTime              @db.Date
+  status            ShipmentBookingStatus @default(PENDING)
+  totalAmount       Float                 @default(0)
+  capacityUnitCount Int
+  fromHubId         String
+  toHubId           String
+  fromSeq           Int
+  toSeq             Int
+  idempotencyKey    String                @unique
+  paymentOrderId    String?               @unique
+  lockExpiresAt     DateTime?
+  failureReason     String?
+  version           Int                   @default(0)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  capacityUnits ShipmentCapacityUnit[]
+  packages      Package[]
+  sagaLog       SagaLog[]
+
+  @@index([userId])
+  @@index([tripId])
+  @@index([status])
+  @@index([lockExpiresAt, status])
+  @@map("shipment_bookings")
+}
+
+model ShipmentCapacityUnit {
+  id                String   @id @default(uuid())
+  shipmentBookingId String
+  capacityUnitId    String
+  unitNumber        Int
+  unitType          String
+  price             Float
+  maxWeightKg       Float
+  createdAt         DateTime @default(now())
+
+  shipmentBooking ShipmentBooking @relation(fields: [shipmentBookingId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentBookingId, capacityUnitId])
+  @@map("shipment_capacity_units")
+}
+
+model Package {
+  id                  String   @id @default(uuid())
+  shipmentBookingId   String
+  description         String
+  category            String
+  weightKg            Float
+  declaredValue       Float?
+  specialInstructions String?
+  capacityUnitId      String?
+  createdAt           DateTime @default(now())
+
+  shipmentBooking ShipmentBooking @relation(fields: [shipmentBookingId], references: [id], onDelete: Cascade)
+
+  @@map("packages")
+}
+
+model SagaLog {
+  id                String         @id @default(uuid())
+  shipmentBookingId String
+  step              SagaStep
+  status            SagaStepStatus @default(PENDING)
+  request           Json?
+  response          Json?
+  error             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  shipmentBooking ShipmentBooking @relation(fields: [shipmentBookingId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentBookingId])
+  @@map("saga_logs")
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(uuid())
+  eventKey    String   @unique
+  response    Json?
+  processedAt DateTime @default(now())
+
+  @@index([eventKey])
+  @@map("idempotency_records")
+}
