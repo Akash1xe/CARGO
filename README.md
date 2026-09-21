@@ -2,7 +2,7 @@
 
 > CargoFlow is an intercity logistics and cargo-capacity booking platform built as a production-style microservices learning project. It preserves the existing Node.js service architecture while the inherited railway domain is converted incrementally into cargo logistics.
 
-**YouTube Tutorial Series**: https://youtu.be/K_cTtCXCPeY?si=VLIxFdgK2k3XraXA
+
 
 ---
 
