@@ -1,43 +1,40 @@
-import { formatCurrency, formatSeatType, formatDate } from '../../utils/format';
+import { formatCapacityType, formatCapacityUnitNumber, formatCurrency, formatDate } from '../../utils/format';
 
-export default function BookingSummary({ train, seats, totalPrice, departureDate }) {
+export default function BookingSummary({ train, seats, totalPrice, departureDate, children }) {
+  const serviceName = train?.vehicleName || train?.trainName;
+  const from = train?.from;
+  const to = train?.to;
+
   return (
-    <div className="card mb-6">
-      <h3 className="text-lg font-semibold mb-3">Booking Summary</h3>
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <p className="font-bold text-primary-900">{train?.trainName}</p>
-          <p className="text-sm text-gray-500">#{train?.trainNumber}</p>
-        </div>
-        {departureDate && (
-          <p className="text-sm text-gray-600">Departure: <strong>{formatDate(departureDate)}</strong></p>
-        )}
-      </div>
+    <aside className="booking-review" aria-labelledby="booking-summary-heading">
+      <h2 id="booking-summary-heading">Booking Summary</h2>
+      <div className="booking-review-body">
+        <dl className="booking-review-facts">
+          {serviceName && <div><dt>Transport service</dt><dd>{serviceName}</dd></div>}
+          {(from?.name || to?.name) && <div><dt>Route</dt><dd>{from?.name || 'Origin hub'} → {to?.name || 'Destination hub'}</dd></div>}
+          {departureDate && <div><dt>Departure date</dt><dd>{formatDate(departureDate)}</dd></div>}
+          <div><dt>Selected capacity units</dt><dd>{seats.map((unit) => formatCapacityUnitNumber(unit.seatNumber)).join(', ')}</dd></div>
+        </dl>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="py-2 text-gray-500 font-medium">Seat #</th>
-            <th className="py-2 text-gray-500 font-medium">Type</th>
-            <th className="py-2 text-gray-500 font-medium text-right">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {seats.map((s) => (
-            <tr key={s.seatId} className="border-b border-gray-50">
-              <td className="py-2">{s.seatNumber}</td>
-              <td className="py-2">{formatSeatType(s.seatType)}</td>
-              <td className="py-2 text-right">{formatCurrency(s.price)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan={2} className="py-3 text-right font-bold">Total</td>
-            <td className="py-3 text-right font-bold text-primary-900 text-lg">{formatCurrency(totalPrice)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+        <div className="booking-unit-table-wrap">
+          <table className="booking-unit-table">
+            <thead><tr><th>Unit</th><th>Capacity type</th><th>Price</th></tr></thead>
+            <tbody>
+              {seats.map((unit) => (
+                <tr key={unit.seatId}>
+                  <td>{formatCapacityUnitNumber(unit.seatNumber)}</td>
+                  <td>{formatCapacityType(unit.seatType)}</td>
+                  <td>{formatCurrency(unit.price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="booking-review-total"><span>Subtotal</span><strong>{formatCurrency(totalPrice)}</strong></div>
+        <div className="booking-security-note"><span aria-hidden="true">◇</span><p><strong>Your information is protected.</strong> Package details are used to coordinate this shipment booking.</p></div>
+        {children}
+      </div>
+    </aside>
   );
 }

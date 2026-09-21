@@ -1,120 +1,95 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { adminApi } from '../../api/admin.api';
 import { useToast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import { SEAT_TYPES } from '../../utils/constants';
+import Spinner from '../ui/Spinner';
+import EmptyState from '../ui/EmptyState';
+import { CAPACITY_UNIT_TYPES } from '../../utils/constants';
+import { formatCapacityType } from '../../utils/format';
 
-const seatTypeOptions = SEAT_TYPES.map((t) => ({ value: t, label: t.replace('_', ' ') }));
+const unitTypeOptions = CAPACITY_UNIT_TYPES.map((type) => ({ value: type, label: formatCapacityType(type) }));
+const emptyVehicle = { vehicleNumber: '', vehicleName: '', vehicleType: 'CLOSED_TRUCK' };
+const emptyUnit = { unitNumber: '', unitType: 'STANDARD', price: '', maxWeightKg: '' };
 
 export default function TrainManager() {
-  const [trains, setTrains] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ trainNumber: '', trainName: '', coachName: '' });
-  const [seatRows, setSeatRows] = useState([{ seatNumber: '', seatType: 'LOWER', price: '' }]);
+  const [form, setForm] = useState(emptyVehicle);
+  const [unitRows, setUnitRows] = useState([{ ...emptyUnit }]);
   const showToast = useToast();
 
-  const fetchTrains = async () => {
+  const fetchVehicles = async () => {
     setLoading(true);
     try {
-      const res = await adminApi.getTrains();
-      setTrains(res.data || []);
+      const res = await adminApi.getVehicles();
+      setVehicles(res.data || []);
     } catch (err) {
-      showToast(err.message, 'error');
+      setVehicles([]);
+      showToast(err.message || 'Failed to load vehicles', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTrains(); }, []);
+  useEffect(() => { fetchVehicles(); }, []);
 
-  const addSeatRow = () => setSeatRows([...seatRows, { seatNumber: '', seatType: 'LOWER', price: '' }]);
-  const removeSeatRow = (i) => setSeatRows(seatRows.filter((_, idx) => idx !== i));
-  const updateSeatRow = (i, field, value) => {
-    const updated = [...seatRows];
-    updated[i] = { ...updated[i], [field]: value };
-    setSeatRows(updated);
-  };
+  const addUnitRow = () => setUnitRows((rows) => [...rows, { ...emptyUnit }]);
+  const removeUnitRow = (index) => setUnitRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index));
+  const updateUnitRow = (index, field, value) => setUnitRows((rows) => rows.map(
+    (row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row,
+  ));
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const handleCreate = async (event) => {
+    event.preventDefault();
     setCreating(true);
     try {
-      const seats = seatRows.map((r) => ({
-        seatNumber: parseInt(r.seatNumber, 10),
-        seatType: r.seatType,
-        price: parseFloat(r.price),
+      const capacityUnits = unitRows.map((row) => ({
+        unitNumber: Number.parseInt(row.unitNumber, 10),
+        unitType: row.unitType,
+        price: Number.parseFloat(row.price),
+        maxWeightKg: Number.parseFloat(row.maxWeightKg),
       }));
-      await adminApi.createTrain({ ...form, seats });
-      showToast('Train created!', 'success');
-      setForm({ trainNumber: '', trainName: '', coachName: '' });
-      setSeatRows([{ seatNumber: '', seatType: 'LOWER', price: '' }]);
-      fetchTrains();
+      await adminApi.createVehicle({ ...form, capacityUnits });
+      showToast('Vehicle created!', 'success');
+      setForm(emptyVehicle);
+      setUnitRows([{ ...emptyUnit }]);
+      fetchVehicles();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'Failed to create vehicle', 'error');
     } finally {
       setCreating(false);
     }
   };
 
-  return (
-    <div>
-      <form onSubmit={handleCreate} className="card mb-6">
-        <h3 className="font-semibold mb-4">Create Train</h3>
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <Input label="Train Number" value={form.trainNumber} onChange={(e) => setForm({ ...form, trainNumber: e.target.value })} required />
-          <Input label="Train Name" value={form.trainName} onChange={(e) => setForm({ ...form, trainName: e.target.value })} required />
-          <Input label="Coach Name" value={form.coachName} onChange={(e) => setForm({ ...form, coachName: e.target.value })} required />
+  return <div className="admin-manager-stack">
+    <form onSubmit={handleCreate} className="admin-create-panel">
+      <h2>Create Vehicle</h2>
+      <div className="admin-create-body">
+        <div className="admin-form-grid">
+          <Input label="Vehicle Number" value={form.vehicleNumber} onChange={(event) => setForm({ ...form, vehicleNumber: event.target.value })} required />
+          <Input label="Vehicle Name" value={form.vehicleName} onChange={(event) => setForm({ ...form, vehicleName: event.target.value })} required />
+          <Input label="Vehicle Type" value={form.vehicleType} onChange={(event) => setForm({ ...form, vehicleType: event.target.value.toUpperCase() })} placeholder="e.g. CLOSED_TRUCK" required />
         </div>
-
-        <h4 className="text-sm font-medium mb-2">Seats</h4>
-        <div className="space-y-2 mb-4">
-          {seatRows.map((row, i) => (
-            <div key={i} className="flex gap-2 items-end">
-              <Input label={i === 0 ? 'Seat #' : undefined} type="number" value={row.seatNumber} onChange={(e) => updateSeatRow(i, 'seatNumber', e.target.value)} placeholder="#" required className="w-24" />
-              <Select label={i === 0 ? 'Type' : undefined} value={row.seatType} onChange={(e) => updateSeatRow(i, 'seatType', e.target.value)} options={seatTypeOptions} className="w-36" />
-              <Input label={i === 0 ? 'Price' : undefined} type="number" value={row.price} onChange={(e) => updateSeatRow(i, 'price', e.target.value)} placeholder="Price" required className="w-28" />
-              {seatRows.length > 1 && (
-                <button type="button" onClick={() => removeSeatRow(i)} className="text-red-500 hover:text-red-700 text-xl pb-1">&times;</button>
-              )}
-            </div>
-          ))}
+        <h3>Capacity Units</h3>
+        <div className="admin-dynamic-list">
+          {unitRows.map((row, index) => <fieldset key={index}>
+            <legend>Capacity unit {index + 1}</legend>
+            <Input label="Unit #" type="number" min="1" value={row.unitNumber} onChange={(event) => updateUnitRow(index, 'unitNumber', event.target.value)} required />
+            <Select label="Type" value={row.unitType} onChange={(event) => updateUnitRow(index, 'unitType', event.target.value)} options={unitTypeOptions} />
+            <Input label="Price (INR)" type="number" min="0.01" step="0.01" value={row.price} onChange={(event) => updateUnitRow(index, 'price', event.target.value)} required />
+            <Input label="Maximum weight (kg)" type="number" min="0.01" step="0.01" value={row.maxWeightKg} onChange={(event) => updateUnitRow(index, 'maxWeightKg', event.target.value)} required />
+            {unitRows.length > 1 && <button type="button" className="admin-remove-row" aria-label={`Remove capacity unit ${index + 1}`} onClick={() => removeUnitRow(index)}>×</button>}
+          </fieldset>)}
         </div>
-        <div className="flex gap-3">
-          <Button type="button" variant="secondary" onClick={addSeatRow}>+ Add Seat</Button>
-          <Button type="submit" loading={creating}>Create Train</Button>
-        </div>
-      </form>
-
-      <div className="card">
-        <h3 className="font-semibold mb-4">Trains</h3>
-        {loading ? <p className="text-center py-4 text-gray-400">Loading...</p> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2 text-left">Number</th>
-                  <th className="py-2 text-left">Name</th>
-                  <th className="py-2 text-left">Coach</th>
-                  <th className="py-2 text-left">Seats</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trains.map((t) => (
-                  <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-2 font-mono">{t.trainNumber}</td>
-                    <td className="py-2">{t.trainName}</td>
-                    <td className="py-2">{t.coachName}</td>
-                    <td className="py-2">{t.totalSeats || t.seats?.length || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="admin-form-actions"><Button type="button" variant="secondary" onClick={addUnitRow}>Add Capacity Unit</Button><Button type="submit" loading={creating}>Create Vehicle</Button></div>
       </div>
-    </div>
-  );
+    </form>
+    <section className="admin-list-panel">
+      <header><h2>Vehicles</h2></header>
+      {loading ? <div className="admin-loading" role="status"><Spinner /><span>Loading vehicles…</span></div> : vehicles.length === 0 ? <EmptyState title="No Vehicles Found." message="Create a vehicle to see it here." /> : <div className="admin-table-wrap"><table><thead><tr><th>Vehicle Number</th><th>Vehicle Name</th><th>Vehicle Type</th><th>Capacity Units</th></tr></thead><tbody>{vehicles.map((vehicle) => <tr key={vehicle.id}><td>{vehicle.vehicleNumber}</td><td>{vehicle.vehicleName}</td><td>{vehicle.vehicleType}</td><td>{vehicle.totalCapacityUnits ?? vehicle.capacityUnits?.length ?? '—'}</td></tr>)}</tbody></table></div>}
+    </section>
+  </div>;
 }

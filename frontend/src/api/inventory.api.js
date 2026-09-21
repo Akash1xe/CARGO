@@ -1,16 +1,16 @@
 import client from './client';
 
 export const inventoryApi = {
-  getAvailability: (scheduleId) =>
-    client.get(`/inventory/schedules/${scheduleId}/availability`).then((r) => r.data),
+  getAvailability: (tripId) =>
+    client.get(`/inventory/trips/${tripId}/availability`).then((r) => r.data),
 
-  getSeats: (scheduleId, params = {}) => {
+  getCapacityUnits: (tripId, params = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
-    if (params.seatType) qs.set('seatType', params.seatType);
+    if (params.unitType || params.seatType) qs.set('unitType', params.unitType || params.seatType);
     if (params.fromSeq) qs.set('fromSeq', params.fromSeq);  // --- SEGMENT BOOKING
     if (params.toSeq) qs.set('toSeq', params.toSeq);        // --- SEGMENT BOOKING
     const qStr = qs.toString();
-    return client.get(`/inventory/schedules/${scheduleId}/seats${qStr ? '?' + qStr : ''}`).then((r) => r.data);
+    return client.get(`/inventory/trips/${tripId}/capacity-units${qStr ? '?' + qStr : ''}`).then((r) => r.data);
   },
 };

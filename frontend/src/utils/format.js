@@ -34,6 +34,28 @@ export function formatSeatType(type) {
   return SEAT_TYPE_LABELS[type] || type;
 }
 
+const CAPACITY_TYPE_LABELS = {
+  STANDARD: 'Standard',
+  FRAGILE: 'Fragile',
+  REFRIGERATED: 'Temperature Controlled',
+  HAZARDOUS: 'Hazardous',
+  LOWER: 'Standard',
+  MIDDLE: 'Standard',
+  UPPER: 'Standard',
+  SIDE_LOWER: 'Priority',
+  SIDE_UPPER: 'Priority',
+};
+
+export function formatCapacityType(type) {
+  return CAPACITY_TYPE_LABELS[type] || type?.replaceAll('_', ' ') || 'Type not provided';
+}
+
+export function formatCapacityUnitNumber(number) {
+  if (number === null || number === undefined || number === '') return 'Unit';
+  const value = String(number);
+  return /^C/i.test(value) ? value.toUpperCase() : `C${value.padStart(2, '0')}`;
+}
+
 export function formatTime(timeStr) {
   if (!timeStr) return '—';
   return timeStr;

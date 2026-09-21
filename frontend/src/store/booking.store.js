@@ -4,17 +4,17 @@ import { MAX_SEATS_PER_BOOKING } from '../utils/constants';
 export const useBookingStore = create((set, get) => ({
   selectedTrain: null,
   scheduleId: null,
-  fromStation: null,  // --- SEGMENT BOOKING: { stationId, name, code, sequenceNumber }
-  toStation: null,    // --- SEGMENT BOOKING: { stationId, name, code, sequenceNumber }
+  fromStation: null,  // Cargo route origin: { hubId, name, code, sequenceNumber }
+  toStation: null,    // Cargo route destination: { hubId, name, code, sequenceNumber }
   selectedSeats: new Map(),
   passengers: [],
 
-  // --- SEGMENT BOOKING: Store from/to station data when selecting a train ---
+  // Preserve the established store keys while storing CargoFlow hub identifiers.
   setSelectedTrain: (train, scheduleId) => set({
     selectedTrain: train,
     scheduleId,
-    fromStation: train.from ? { stationId: train.from.stationId, name: train.from.name, code: train.from.code, sequenceNumber: train.from.sequenceNumber } : null,
-    toStation: train.to ? { stationId: train.to.stationId, name: train.to.name, code: train.to.code, sequenceNumber: train.to.sequenceNumber } : null,
+    fromStation: train.from ? { hubId: train.from.hubId, name: train.from.name, code: train.from.code, sequenceNumber: train.from.sequenceNumber } : null,
+    toStation: train.to ? { hubId: train.to.hubId, name: train.to.name, code: train.to.code, sequenceNumber: train.to.sequenceNumber } : null,
     selectedSeats: new Map(),
     passengers: [],
   }),

@@ -1,46 +1,61 @@
 import Input from '../ui/Input';
-import Select from '../ui/Select';
-import { formatSeatType } from '../../utils/format';
-
-const GENDER_OPTIONS = [
-  { value: 'MALE', label: 'Male' },
-  { value: 'FEMALE', label: 'Female' },
-  { value: 'OTHER', label: 'Other' },
-];
+import { formatCapacityType, formatCapacityUnitNumber } from '../../utils/format';
 
 export default function PassengerForm({ index, seat, register, errors }) {
+  const packageErrors = errors?.packages?.[index];
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <p className="text-sm font-semibold text-primary-900 mb-3">
-        Passenger {index + 1} — Seat #{seat.seatNumber} ({formatSeatType(seat.seatType)})
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <fieldset className="authorized-contact-card">
+      <legend className="sr-only">Package for {formatCapacityUnitNumber(seat.seatNumber)}</legend>
+      <div className="authorized-contact-unit">
+        <span>Capacity Unit</span>
+        <strong>{formatCapacityUnitNumber(seat.seatNumber)}</strong>
+        <small>{formatCapacityType(seat.seatType)}</small>
+      </div>
+      <div className="authorized-contact-fields">
         <Input
-          label="Full Name"
-          placeholder="Enter name"
-          {...register(`passengers.${index}.name`, { required: 'Name is required' })}
-          error={errors?.passengers?.[index]?.name?.message}
+          label="Package description (required)"
+          placeholder="e.g. Industrial machine parts"
+          {...register(`packages.${index}.description`, { required: 'Description is required' })}
+          error={packageErrors?.description?.message}
         />
         <Input
-          label="Age"
+          label="Category (required)"
+          placeholder="e.g. Industrial"
+          {...register(`packages.${index}.category`, { required: 'Category is required' })}
+          error={packageErrors?.category?.message}
+        />
+        <Input
+          label="Weight in kg (required)"
           type="number"
-          placeholder="Age"
-          {...register(`passengers.${index}.age`, {
-            required: 'Age is required',
-            min: { value: 1, message: 'Min 1' },
-            max: { value: 120, message: 'Max 120' },
+          min="0.01"
+          step="0.01"
+          inputMode="decimal"
+          {...register(`packages.${index}.weightKg`, {
+            required: 'Weight is required',
+            min: { value: 0.01, message: 'Weight must be greater than zero' },
             valueAsNumber: true,
           })}
-          error={errors?.passengers?.[index]?.age?.message}
+          error={packageErrors?.weightKg?.message}
         />
-        <Select
-          label="Gender"
-          placeholder="Select"
-          options={GENDER_OPTIONS}
-          {...register(`passengers.${index}.gender`, { required: 'Gender is required' })}
-          error={errors?.passengers?.[index]?.gender?.message}
+        <Input
+          label="Declared value (INR)"
+          type="number"
+          min="0"
+          step="0.01"
+          inputMode="decimal"
+          {...register(`packages.${index}.declaredValue`, {
+            min: { value: 0, message: 'Declared value cannot be negative' },
+            setValueAs: (value) => value === '' ? undefined : Number(value),
+          })}
+          error={packageErrors?.declaredValue?.message}
+        />
+        <Input
+          label="Special instructions"
+          placeholder="Optional handling instructions"
+          {...register(`packages.${index}.specialInstructions`)}
+          error={packageErrors?.specialInstructions?.message}
         />
       </div>
-    </div>
+    </fieldset>
   );
 }

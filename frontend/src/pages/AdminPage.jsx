@@ -7,16 +7,14 @@ import ScheduleManager from '../components/admin/ScheduleManager';
 
 export default function AdminPage() {
   const [tab, setTab] = useState('Stations');
-
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Admin Panel</h1>
+    <main className="admin-page"><div className="editorial-shell">
+      <header className="admin-heading"><div><p>Operations Control</p><h1>CargoFlow Admin.</h1><span>Manage hubs, fleet capacity, transport routes, and dispatch schedules.</span></div><aside aria-label="Administrative interface notice">Authorized<br />Access.<i /></aside></header>
       <AdminTabs active={tab} onChange={setTab} />
-
-      {tab === 'Stations' && <StationManager />}
-      {tab === 'Trains' && <TrainManager />}
-      {tab === 'Routes' && <RouteManager />}
-      {tab === 'Schedules' && <ScheduleManager />}
-    </div>
+      <div className="admin-tab-panel" role="tabpanel" id={`admin-panel-${tab.toLowerCase()}`} aria-labelledby={`admin-tab-${tab.toLowerCase()}`}>
+        {tab === 'Stations' && <StationManager />}{tab === 'Trains' && <TrainManager />}{tab === 'Routes' && <RouteManager />}{tab === 'Schedules' && <ScheduleManager />}
+      </div>
+      <div className="admin-operations-note"><strong>Operations Note</strong><span>Keep network data accurate for reliable cargo search.</span></div>
+    </div></main>
   );
 }

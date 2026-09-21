@@ -4,6 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        canvas: '#F7F4ED',
+        ink: '#080808',
+        electric: '#075CFF',
+        signal: '#F2FF00',
+        coral: '#FF6158',
+        muted: '#ECEBE7',
         primary: {
           50: '#e8eaf6',
           100: '#c5cae9',
@@ -28,6 +34,14 @@ export default {
           800: '#ef6c00',
           900: '#e65100',
         },
+      },
+      boxShadow: {
+        hard: '6px 6px 0 #080808',
+        'hard-sm': '3px 3px 0 #080808',
+      },
+      fontFamily: {
+        display: ['Arial Narrow', 'Roboto Condensed', 'Impact', 'sans-serif'],
+        sans: ['Inter', 'Arial', 'Helvetica', 'sans-serif'],
       },
     },
   },

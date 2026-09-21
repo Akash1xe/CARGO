@@ -1,31 +1,50 @@
 import { useNavigate } from 'react-router-dom';
 import { useBookingStore } from '../../store/booking.store';
-import { formatCurrency } from '../../utils/format';
+import { formatCapacityUnitNumber, formatCurrency } from '../../utils/format';
 import { MAX_SEATS_PER_BOOKING } from '../../utils/constants';
 import Button from '../ui/Button';
 
 export default function SelectionSummary() {
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
+  const toggleSeat = useBookingStore((s) => s.toggleSeat);
   const navigate = useNavigate();
+  const selectedUnits = [...selectedSeats.values()];
+  const count = selectedUnits.length;
+  const totalPrice = selectedUnits.reduce((sum, unit) => sum + (unit.price || 0), 0);
 
-  const count = selectedSeats.size;
-  let totalPrice = 0;
-  selectedSeats.forEach((s) => (totalPrice += s.price || 0));
-
-  if (count === 0) return null;
+  const clearSelection = () => selectedUnits.forEach((unit) => toggleSeat(unit));
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-30">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="text-sm">
-          <span className="font-semibold">{count}</span> seat{count !== 1 ? 's' : ''} selected
-          <span className="text-gray-400 ml-1">(max {MAX_SEATS_PER_BOOKING})</span>
-          <span className="ml-4 font-bold text-primary-900 text-lg">{formatCurrency(totalPrice)}</span>
+    <aside className="capacity-selection-summary" aria-labelledby="selection-heading">
+      <h2 id="selection-heading">Your Selection</h2>
+      <div className="capacity-selection-content">
+        <div className="capacity-selection-title-row">
+          <strong>Selected capacity units ({count})</strong>
+          {count > 0 && <button type="button" onClick={clearSelection}>Clear all</button>}
         </div>
-        <Button onClick={() => navigate('/booking')}>
-          Proceed to Booking
+
+        {count > 0 ? (
+          <div className="capacity-selected-units">
+            {selectedUnits.map((unit) => (
+              <button key={unit.seatId} type="button" onClick={() => toggleSeat(unit)} aria-label={`Remove ${formatCapacityUnitNumber(unit.seatNumber)} from selection`}>
+                {formatCapacityUnitNumber(unit.seatNumber)} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="capacity-selection-empty">Choose one or more available capacity units.</p>
+        )}
+
+        <dl className="capacity-selection-facts">
+          <div><dt>Total selected units</dt><dd>{count}</dd></div>
+          <div><dt>Maximum units per booking</dt><dd>{MAX_SEATS_PER_BOOKING}</dd></div>
+          <div className="capacity-selection-subtotal"><dt>Subtotal</dt><dd>{formatCurrency(totalPrice)}</dd></div>
+        </dl>
+
+        <Button disabled={count === 0} onClick={() => navigate('/booking')} className="capacity-continue-button">
+          Continue to Booking <span aria-hidden="true">→</span>
         </Button>
       </div>
-    </div>
+    </aside>
   );
 }

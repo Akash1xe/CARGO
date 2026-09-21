@@ -1,8 +1,12 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
-    <footer className="bg-gray-800 text-gray-400 text-center py-6 text-sm mt-auto">
-      <p>CargoFlow</p>
-      <p className="text-gray-500 mt-1">Distributed intercity logistics and cargo-capacity booking</p>
+    <footer className="editorial-footer">
+      <div className="editorial-shell footer-inner">
+        <div><strong>CargoFlow</strong><p>Distributed intercity logistics and cargo-capacity booking.</p></div>
+        <nav aria-label="Footer navigation"><Link to="/search">Search capacity</Link><Link to="/bookings">My shipments</Link></nav>
+      </div>
     </footer>
   );
 }

@@ -2,11 +2,11 @@ import SeatTile from './SeatTile';
 
 export default function SeatGrid({ seats, selectedSeats, onToggleSeat }) {
   if (!seats || seats.length === 0) {
-    return <p className="text-center text-gray-500 py-8">No seats available</p>;
+    return <p className="capacity-grid-empty">No cargo capacity is available for this route.</p>;
   }
 
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+    <div className="capacity-unit-grid">
       {seats.map((seat) => (
         <SeatTile
           key={seat.seatId || seat.id}

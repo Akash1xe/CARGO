@@ -6,7 +6,7 @@ import { ToastProvider } from '../ui/Toast';
 export default function AppLayout() {
   return (
     <ToastProvider>
-      <div className="flex flex-col min-h-screen">
+      <div className="app-shell flex flex-col min-h-screen">
         <Navbar />
         <main className="flex-1">
           <Outlet />

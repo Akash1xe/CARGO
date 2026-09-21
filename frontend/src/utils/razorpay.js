@@ -27,7 +27,7 @@ export function openRazorpayCheckout({ keyId, orderId, amount, currency, booking
     currency: currency || 'INR',
     order_id: orderId,
     name: 'CargoFlow',
-    description: bookingDescription || 'Train Ticket Booking',
+    description: bookingDescription || 'Cargo Shipment Booking',
     prefill: {
       name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
       email: user?.email || '',

@@ -20,7 +20,7 @@ const clearCookieOptions = () => {
 };
 
 exports.sendOTP = asyncHandler(async(req, res) =>{
-     const {firstName, lastName, email, password, confirmPassword} = req.body;
+     const {firstName, lastName, email, password, confirmPassword, accountType = 'CUSTOMER'} = req.body;
      if(!firstName || !lastName || !email || !password || !confirmPassword){
           throw new BadRequestError("All fields are mandatory");
      }
@@ -29,7 +29,15 @@ exports.sendOTP = asyncHandler(async(req, res) =>{
           throw new BadRequestError("Password mismatch");
      }
 
-     const {otpSessionId} = await authService.sendOTP(firstName, lastName, email, password);
+     if(!['CUSTOMER', 'ADMIN'].includes(accountType)){
+          throw new BadRequestError("Invalid account type");
+     }
+
+     if(accountType === 'ADMIN' && !config.ALLOW_DEMO_ADMIN_SIGNUP){
+          throw new BadRequestError("Administrator self-registration is disabled");
+     }
+
+     const {otpSessionId} = await authService.sendOTP(firstName, lastName, email, password, accountType);
      res.cookie("otp_session", otpSessionId, cookieOptions(config.OTP_TTL * 1000)).status(200).json({
           success: true,
           message: "OTP sent successfully"

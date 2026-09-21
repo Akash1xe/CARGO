@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { bookingApi } from '../api/booking.api';
 import BookingCard from '../components/bookings/BookingCard';
 import BookingFilters from '../components/bookings/BookingFilters';
@@ -12,48 +13,41 @@ export default function MyBookingsPage() {
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const showToast = useToast();
 
   const fetchBookings = async (status, page) => {
     setLoading(true);
+    setLoadError('');
     try {
-      const res = await bookingApi.list(status || undefined, page, 10);
+      const res = await bookingApi.listShipments(status || undefined, page, 10);
       const data = res.data || res;
-      setBookings(data.bookings || []);
+      setBookings(data.bookings || data.shipments || []);
       setPagination(data.pagination || { page: 1, totalPages: 1 });
     } catch (err) {
-      showToast(err.message || 'Failed to load bookings', 'error');
+      setBookings([]);
+      setPagination({ page: 1, totalPages: 1 });
+      const message = err.message || 'Failed to load shipments';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBookings(statusFilter, 1);
-  }, [statusFilter]);
-
-  const handlePageChange = (page) => {
-    fetchBookings(statusFilter, page);
-  };
+  useEffect(() => { fetchBookings(statusFilter, 1); }, [statusFilter]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">My Bookings</h1>
-
-      <BookingFilters active={statusFilter} onChange={(v) => setStatusFilter(v)} />
-
-      {loading ? (
-        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-      ) : bookings.length === 0 ? (
-        <EmptyState title="No bookings found" message={statusFilter ? 'Try a different filter' : 'Book your first train ticket!'} />
-      ) : (
-        <>
-          <div className="space-y-3">
-            {bookings.map((b) => <BookingCard key={b.id} booking={b} />)}
-          </div>
-          <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={handlePageChange} />
-        </>
-      )}
-    </div>
+    <main className="shipments-page"><div className="editorial-shell">
+      <header className="shipments-heading"><div><h1>My Shipments.</h1><p>Review bookings, payment states, and shipment details.</p></div><Link to="/search" className="shipments-new-link">Book New Shipment <span aria-hidden="true">→</span></Link></header>
+      <BookingFilters active={statusFilter} onChange={setStatusFilter} />
+      <div className="shipments-results" aria-live="polite" aria-busy={loading}>
+        {loading ? <div className="shipments-loading"><Spinner size="lg" /><strong>Loading shipments…</strong></div> : loadError ? (
+          <EmptyState title="Unable to Load Shipments." message={loadError}><button type="button" className="shipments-empty-link" onClick={() => fetchBookings(statusFilter, pagination.page)}>Try Again →</button></EmptyState>
+        ) : bookings.length === 0 ? (
+          <EmptyState title="No Shipments Found." message={statusFilter ? 'No shipments match this status.' : 'Book your first cargo shipment to see it here.'}>{!statusFilter && <Link to="/search" className="shipments-empty-link">Book New Shipment →</Link>}</EmptyState>
+        ) : <><div className="shipments-list">{bookings.map((booking) => <BookingCard key={booking.id || booking.shipmentBookingId} booking={booking} />)}</div><Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(page) => fetchBookings(statusFilter, page)} /></>}
+      </div>
+    </div></main>
   );
 }

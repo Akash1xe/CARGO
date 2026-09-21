@@ -1,25 +1,25 @@
-import { SEAT_TYPES, SEAT_TYPE_LABELS } from '../../utils/constants';
+import { formatCapacityType } from '../../utils/format';
 
-export default function SeatFilters({ activeFilter, onChange }) {
+export default function SeatFilters({ activeFilter, onChange, types = [], counts = {}, total = 0 }) {
   return (
     <div className="flex flex-wrap gap-2 mb-4">
       <button
+        type="button"
         onClick={() => onChange(null)}
-        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-          !activeFilter ? 'bg-primary-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }`}
+        className={`capacity-filter${!activeFilter ? ' is-active' : ''}`}
+        aria-pressed={!activeFilter}
       >
-        All
+        All <span>({total})</span>
       </button>
-      {SEAT_TYPES.map((type) => (
+      {types.map((type) => (
         <button
+          type="button"
           key={type}
           onClick={() => onChange(type)}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            activeFilter === type ? 'bg-primary-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
+          className={`capacity-filter${activeFilter === type ? ' is-active' : ''}`}
+          aria-pressed={activeFilter === type}
         >
-          {SEAT_TYPE_LABELS[type]}
+          {formatCapacityType(type)} <span>({counts[type] || 0})</span>
         </button>
       ))}
     </div>

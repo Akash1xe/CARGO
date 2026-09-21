@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useBookingPolling } from '../hooks/useBookingPolling';
 import { bookingApi } from '../api/booking.api';
 import { useToast } from '../components/ui/Toast';
@@ -8,7 +8,65 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
 import BookingStatusPoller from '../components/booking/BookingStatusPoller';
-import { formatDate, formatDateTime, formatCurrency, formatSeatType } from '../utils/format';
+import { formatCapacityType, formatCapacityUnitNumber, formatDate, formatDateTime, formatCurrency } from '../utils/format';
+
+const CANCELLABLE_STATUSES = ['CONFIRMED', 'PAYMENT_PENDING', 'CAPACITY_HELD'];
+const TERMINAL_FAILURE_STATUSES = ['FAILED', 'CANCELLED', 'EXPIRED'];
+
+const vehicleAssets = {
+  CLOSED: '/assets/cargoflow/vehicle-closed-truck.webp',
+  CLOSED_TRUCK: '/assets/cargoflow/vehicle-closed-truck.webp',
+  OPEN: '/assets/cargoflow/vehicle-open-truck.webp',
+  OPEN_TRUCK: '/assets/cargoflow/vehicle-open-truck.webp',
+  REEFER: '/assets/cargoflow/vehicle-reefer-truck.webp',
+  REFRIGERATED: '/assets/cargoflow/vehicle-reefer-truck.webp',
+  CONTAINER: '/assets/cargoflow/vehicle-container-truck.webp',
+  CONTAINER_TRUCK: '/assets/cargoflow/vehicle-container-truck.webp',
+};
+
+const lifecycleSteps = ['Booking created', 'Capacity reserved', 'Payment', 'Shipment confirmed'];
+const lifecycleIndex = {
+  PENDING: 0,
+  CAPACITY_HELD: 1,
+  PAYMENT_PENDING: 2,
+  CONFIRMING: 3,
+  CONFIRMED: 4,
+};
+
+function DetailStatus({ booking }) {
+  const status = booking.status;
+  if (status === 'CONFIRMED') {
+    return <section className="booking-detail-alert is-confirmed"><span aria-hidden="true">✓</span><div><h2>Booking Confirmed.</h2><p>Your cargo shipment booking is confirmed. The available booking details are shown below.</p></div></section>;
+  }
+  if (status === 'FAILED') {
+    return <section className="booking-detail-alert is-failed"><span aria-hidden="true">!</span><div><h2>Booking Failed.</h2><p>{booking.failureReason || 'The shipment booking could not be completed.'}</p></div></section>;
+  }
+  if (status === 'CANCELLED') {
+    return <section className="booking-detail-alert is-cancelled"><span aria-hidden="true">×</span><div><h2>Booking Cancelled.</h2><p>This shipment booking has been cancelled.</p></div></section>;
+  }
+  if (status === 'EXPIRED') {
+    return <section className="booking-detail-alert is-expired"><span aria-hidden="true">—</span><div><h2>Booking Expired.</h2><p>This shipment booking expired before confirmation.</p></div></section>;
+  }
+  return <BookingStatusPoller status={status} />;
+}
+
+function BookingLifecycle({ status }) {
+  const activeIndex = lifecycleIndex[status];
+  const interrupted = TERMINAL_FAILURE_STATUSES.includes(status);
+  return (
+    <section className={`booking-detail-lifecycle${interrupted ? ' is-interrupted' : ''}`} aria-labelledby="booking-lifecycle-heading">
+      <header><h2 id="booking-lifecycle-heading">Booking Status</h2><p>Booking-processing progress based on the current status.</p></header>
+      <ol>
+        {lifecycleSteps.map((label, index) => {
+          const complete = !interrupted && (activeIndex === 4 || index < activeIndex);
+          const current = !interrupted && activeIndex !== 4 && index === activeIndex;
+          return <li key={label} className={complete ? 'is-complete' : current ? 'is-current' : ''} aria-current={current ? 'step' : undefined}><span aria-hidden="true">{complete ? '✓' : index + 1}</span><strong>{label}</strong></li>;
+        })}
+      </ol>
+      {interrupted && <p className="booking-detail-lifecycle-note">Processing ended with status: <strong>{status.replaceAll('_', ' ')}</strong>.</p>}
+    </section>
+  );
+}
 
 export default function BookingDetailPage() {
   const { bookingId } = useParams();
@@ -20,155 +78,109 @@ export default function BookingDetailPage() {
   const handleCancel = async () => {
     setCancelling(true);
     try {
-      await bookingApi.cancel(bookingId);
-      showToast('Booking cancelled successfully', 'success');
+      await bookingApi.cancelShipment(bookingId);
+      showToast('Shipment booking cancelled successfully', 'success');
       setShowCancel(false);
       refresh();
     } catch (err) {
-      showToast(err.message || 'Failed to cancel', 'error');
+      showToast(err.message || 'Failed to cancel shipment booking', 'error');
     } finally {
       setCancelling(false);
     }
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+    return <main className="booking-detail-state" role="status" aria-live="polite"><Spinner size="lg" /><h1>Loading shipment booking…</h1></main>;
   }
 
   if (error) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="bg-red-50 text-red-700 rounded-lg p-6 text-center">
-          <p className="font-semibold">Error loading booking</p>
-          <p className="text-sm mt-1">{error}</p>
-        </div>
-      </div>
+      <main className="booking-detail-state is-error">
+        <h1>Unable to load shipment booking.</h1>
+        <p>{error}</p>
+        <Button type="button" onClick={refresh}>Retry</Button>
+        <Link to="/bookings">Back to My Shipments</Link>
+      </main>
     );
   }
 
-  if (!booking) return null;
+  if (!booking) {
+    return <main className="booking-detail-state is-error"><h1>Shipment booking not found.</h1><Link to="/bookings">Back to My Shipments</Link></main>;
+  }
 
-  const canCancel = ['CONFIRMED', 'PAYMENT_PENDING', 'SEATS_HELD'].includes(booking.status);
+  const units = booking.capacityUnits || booking.seats || [];
+  const packages = booking.packages || [];
+  const reference = booking.trackingNumber || booking.bookingReference || booking.id || booking.shipmentBookingId || bookingId;
+  const serviceName = booking.vehicleName || booking.trainName;
+  const serviceNumber = booking.vehicleNumber || booking.trainNumber;
+  const vehicleType = booking.vehicleType;
+  const vehicleAsset = vehicleAssets[vehicleType?.toUpperCase()];
+  const origin = booking.fromHubName || booking.fromStationName || booking.from?.name;
+  const destination = booking.toHubName || booking.toStationName || booking.to?.name;
+  const unitCount = booking.capacityUnitCount ?? booking.seatCount ?? units.length;
+  const canCancel = CANCELLABLE_STATUSES.includes(booking.status);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Booking Details</h1>
-        <Badge status={booking.status} />
+    <main className="booking-detail-page">
+      <div className="editorial-shell">
+        <nav className="booking-detail-breadcrumb" aria-label="Breadcrumb"><Link to="/bookings">My Shipments</Link><span aria-hidden="true">/</span><span>Booking Details</span></nav>
+        <div className="booking-detail-heading"><h1>Shipment Booking Details.</h1><Badge status={booking.status} className="booking-detail-badge" /></div>
+
+        <DetailStatus booking={booking} />
+
+        <div className="booking-detail-layout">
+          <div className="booking-detail-main">
+            <section className="booking-detail-route" aria-labelledby="route-transport-heading">
+              <h2 id="route-transport-heading">Route &amp; Transport</h2>
+              <div className="booking-detail-route-body">
+                <div className="booking-detail-vehicle">
+                  {vehicleAsset ? <img src={vehicleAsset} alt="" /> : <span aria-hidden="true">▰</span>}
+                  <div>{serviceName && <strong>{serviceName}</strong>}{serviceNumber && <p>Vehicle #{serviceNumber}</p>}{vehicleType && <small>{vehicleType.replaceAll('_', ' ')}</small>}</div>
+                </div>
+                {origin && destination && <div className="booking-detail-route-line"><div><strong>{origin}</strong><small>Origin hub</small></div><span aria-hidden="true"><i /><b /><i /></span><div><strong>{destination}</strong><small>Destination hub</small></div></div>}
+                <dl className="booking-detail-route-meta">
+                  {booking.departureDate && <div><dt>Departure date</dt><dd>{formatDate(booking.departureDate)}</dd></div>}
+                  <div><dt>Booking reference</dt><dd>{reference}</dd></div>
+                  {booking.createdAt && <div><dt>Booked on</dt><dd>{formatDateTime(booking.createdAt)}</dd></div>}
+                </dl>
+              </div>
+            </section>
+
+            <BookingLifecycle status={booking.status} />
+
+            <section className="booking-detail-units" aria-labelledby="capacity-units-heading">
+              <h2 id="capacity-units-heading">Capacity Units</h2>
+              {units.length ? <div className="booking-detail-table-wrap"><table><thead><tr><th>Unit</th><th>Capacity type</th><th>Price</th></tr></thead><tbody>{units.map((unit, index) => <tr key={unit.capacityUnitId || unit.seatId || index}><td data-label="Unit">{formatCapacityUnitNumber(unit.unitNumber ?? unit.seatNumber)}</td><td data-label="Capacity type">{formatCapacityType(unit.unitType || unit.seatType)}</td><td data-label="Price">{formatCurrency(unit.price)}</td></tr>)}</tbody></table></div> : <p className="booking-detail-empty">No capacity-unit details were supplied.</p>}
+            </section>
+          </div>
+
+          <aside className="booking-detail-side">
+            <section className="booking-detail-summary" aria-labelledby="detail-summary-heading">
+              <h2 id="detail-summary-heading">Booking Summary</h2>
+              <div><dl>
+                <div><dt>Booking ID</dt><dd>{reference}</dd></div>
+                {booking.createdAt && <div><dt>Booked on</dt><dd>{formatDateTime(booking.createdAt)}</dd></div>}
+                <div><dt>Status</dt><dd>{booking.status.replaceAll('_', ' ')}</dd></div>
+                <div><dt>Selected units</dt><dd>{unitCount}</dd></div>
+                {serviceName && <div><dt>Transport service</dt><dd>{serviceName}</dd></div>}
+                {origin && destination && <div><dt>Route</dt><dd>{origin} → {destination}</dd></div>}
+              </dl><div className="booking-detail-total"><span>Total amount</span><strong>{formatCurrency(booking.totalAmount)}</strong></div></div>
+            </section>
+
+            {packages.length > 0 && <section className="booking-detail-contacts" aria-labelledby="package-details-heading"><h2 id="package-details-heading">Packages</h2><div>{packages.map((item, index) => <article key={item.id || index}><strong>{item.description || 'Package description not provided'}</strong><dl><div><dt>Category</dt><dd>{item.category || '—'}</dd></div><div><dt>Weight</dt><dd>{item.weightKg ? `${item.weightKg} kg` : '—'}</dd></div>{item.declaredValue !== null && item.declaredValue !== undefined && <div><dt>Declared value</dt><dd>{formatCurrency(item.declaredValue)}</dd></div>}</dl></article>)}</div></section>}
+
+            <div className="booking-detail-actions">
+              <Link className="booking-detail-back" to="/bookings">Back to My Shipments <span aria-hidden="true">→</span></Link>
+              {canCancel && <Button variant="danger" onClick={() => setShowCancel(true)}>Cancel Booking</Button>}
+            </div>
+          </aside>
+        </div>
       </div>
 
-      <BookingStatusPoller status={booking.status} />
-
-      {booking.status === 'CONFIRMED' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3 mb-6">
-          <span className="text-2xl">✓</span>
-          <div>
-            <p className="font-semibold text-green-800">Booking Confirmed!</p>
-            <p className="text-sm text-green-700">Your tickets have been booked successfully</p>
-          </div>
-        </div>
-      )}
-
-      {booking.status === 'FAILED' && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="font-semibold text-red-800">Booking Failed</p>
-          {booking.failureReason && <p className="text-sm text-red-600 mt-1">{booking.failureReason}</p>}
-        </div>
-      )}
-
-      {/* Train Info */}
-      <div className="card mb-4">
-        <h3 className="text-lg font-semibold text-primary-900 mb-1">{booking.trainName}</h3>
-        <p className="text-sm text-gray-500 mb-3">#{booking.trainNumber} &middot; Departure: {formatDate(booking.departureDate)}</p>
-
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Booking ID</p>
-            <p className="font-mono text-xs">{booking.id}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Booked on</p>
-            <p>{formatDateTime(booking.createdAt)}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Total Amount</p>
-            <p className="font-bold text-primary-900">{formatCurrency(booking.totalAmount)}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Seats</p>
-            <p>{booking.seatCount}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Seats */}
-      <div className="card mb-4">
-        <h3 className="font-semibold mb-3">Seats</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2 text-left text-gray-500">Seat #</th>
-              <th className="py-2 text-left text-gray-500">Type</th>
-              <th className="py-2 text-right text-gray-500">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {booking.seats?.map((s) => (
-              <tr key={s.seatId} className="border-b border-gray-50">
-                <td className="py-2">{s.seatNumber}</td>
-                <td className="py-2">{formatSeatType(s.seatType)}</td>
-                <td className="py-2 text-right">{formatCurrency(s.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Passengers */}
-      {booking.passengers && booking.passengers.length > 0 && (
-        <div className="card mb-6">
-          <h3 className="font-semibold mb-3">Passengers</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="py-2 text-left text-gray-500">#</th>
-                <th className="py-2 text-left text-gray-500">Name</th>
-                <th className="py-2 text-left text-gray-500">Age</th>
-                <th className="py-2 text-left text-gray-500">Gender</th>
-              </tr>
-            </thead>
-            <tbody>
-              {booking.passengers.map((p, i) => (
-                <tr key={p.id || i} className="border-b border-gray-50">
-                  <td className="py-2">{i + 1}</td>
-                  <td className="py-2">{p.name}</td>
-                  <td className="py-2">{p.age}</td>
-                  <td className="py-2">{p.gender}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {canCancel && (
-        <Button variant="danger" onClick={() => setShowCancel(true)} className="w-full">
-          Cancel Booking
-        </Button>
-      )}
-
-      <Modal
-        open={showCancel}
-        onClose={() => setShowCancel(false)}
-        title="Cancel Booking?"
-        confirmText="Yes, Cancel"
-        onConfirm={handleCancel}
-        loading={cancelling}
-        danger
-      >
-        Are you sure you want to cancel this booking? This action cannot be undone.
+      <Modal open={showCancel} onClose={() => setShowCancel(false)} title="Cancel Shipment Booking?" confirmText="Yes, Cancel Booking" onConfirm={handleCancel} loading={cancelling} danger className="booking-cancel-modal">
+        Are you sure you want to cancel this shipment booking? This action cannot be undone.
         {booking.status === 'CONFIRMED' && ' A refund will be initiated.'}
       </Modal>
-    </div>
+    </main>
   );
 }

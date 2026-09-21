@@ -30,6 +30,11 @@ const config = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
 
   INTERNAL_SERVICE_KEY: process.env.INTERNAL_SERVICE_KEY,
+
+  // Local/demo convenience only. Production must never allow public role elevation.
+  ALLOW_DEMO_ADMIN_SIGNUP:
+    (process.env.NODE_ENV || "development") !== "production" &&
+    process.env.ALLOW_DEMO_ADMIN_SIGNUP !== "false",
 }
 
 

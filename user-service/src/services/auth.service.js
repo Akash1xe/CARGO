@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken');
 const {OAuth2Client} = require("google-auth-library");
 const client = new OAuth2Client(config.GOOGLE_CLIENT_ID);
 
-const sendOTP = async(firstName, lastName, email, password) =>{
+const sendOTP = async(firstName, lastName, email, password, accountType = 'CUSTOMER') =>{
      email = email.trim().toLowerCase();
      const existingUser = await prisma.user.findUnique({
           where: {email}
@@ -21,7 +21,8 @@ const sendOTP = async(firstName, lastName, email, password) =>{
           throw new ConflictError("user already exists");
      }
      const hashedPassword = await bcrypt.hash(password, 12);
-     const meta = {firstName, lastName, email, hashedPassword};
+     const role = config.ALLOW_DEMO_ADMIN_SIGNUP && accountType === 'ADMIN' ? 'ADMIN' : 'CUSTOMER';
+     const meta = {firstName, lastName, email, hashedPassword, role};
      const {otp, otpSessionId} = await generateAndStoreOtp(meta);
      await notificationProducer.sendOtpEmail(email, otp, (config.OTP_TTL) / 60);
      logger.info(`OTP email queued for : ${email}`);
@@ -40,7 +41,7 @@ const verifyOTP = async(otp, otpSessionId) =>{
                email: meta.email,
                password: meta.hashedPassword,
                emailVerified: true,
-               role: 'CUSTOMER'
+               role: meta.role === 'ADMIN' && config.ALLOW_DEMO_ADMIN_SIGNUP ? 'ADMIN' : 'CUSTOMER'
           }
      })
 

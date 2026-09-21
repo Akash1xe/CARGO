@@ -7,7 +7,7 @@ import { loadRazorpayScript, openRazorpayCheckout } from '../../utils/razorpay';
 import { useToast } from '../ui/Toast';
 import Button from '../ui/Button';
 
-export default function PaymentButton({ passengers, scheduleId, seatIds, disabled }) {
+export default function PaymentButton({ packages, tripId, capacityUnitIds, disabled }) {
   const [loading, setLoading] = useState(false);
   const user = useAuthStore((s) => s.user);
   const reset = useBookingStore((s) => s.reset);
@@ -21,19 +21,23 @@ export default function PaymentButton({ passengers, scheduleId, seatIds, disable
     try {
       const idempotencyKey = crypto.randomUUID();
       // --- SEGMENT BOOKING: Include fromStation/toStation segment params ---
-      const res = await bookingApi.create({
-        scheduleId, seatIds, passengers, idempotencyKey,
-        fromStationId: fromStation?.stationId,
-        toStationId: toStation?.stationId,
+      const res = await bookingApi.createShipment({
+        tripId,
+        capacityUnitIds,
+        packages,
+        idempotencyKey,
+        fromHubId: fromStation?.hubId,
+        toHubId: toStation?.hubId,
         fromSeq: fromStation?.sequenceNumber,
         toSeq: toStation?.sequenceNumber,
       });
       const booking = res.data || res;
+      const shipmentBookingId = booking.shipmentBookingId;
       const paymentOrder = booking.paymentOrder;
 
       if (!paymentOrder?.gatewayOrderId) {
-        showToast('Booking created but payment order missing', 'warning');
-        navigate(`/bookings/${booking.bookingId}`);
+        showToast('Shipment booking created but payment order is missing', 'warning');
+        navigate(`/bookings/${shipmentBookingId}`);
         return;
       }
 
@@ -44,34 +48,34 @@ export default function PaymentButton({ passengers, scheduleId, seatIds, disable
         orderId: paymentOrder.gatewayOrderId,
         amount: paymentOrder.amount,
         currency: paymentOrder.currency || 'INR',
-        bookingDescription: `Booking ${booking.bookingId}`,
+        bookingDescription: `Cargo Shipment Booking ${shipmentBookingId}`,
         user,
         onSuccess: async (response) => {
           try {
-            await bookingApi.verifyPayment(booking.bookingId, {
+            await bookingApi.verifyPayment(shipmentBookingId, {
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             });
-            showToast('Payment verified! Confirming booking...', 'success');
+            showToast('Payment verified! Confirming shipment booking...', 'success');
           } catch (err) {
             showToast('Payment received. Confirmation may take a moment.', 'warning');
           }
           reset();
-          navigate(`/bookings/${booking.bookingId}`);
+          navigate(`/bookings/${shipmentBookingId}`);
         },
         onDismiss: () => {
-          showToast('Payment cancelled. Your seats are held temporarily.', 'warning');
+          showToast('Payment cancelled. Review the shipment booking status for next steps.', 'warning');
           reset();
-          navigate(`/bookings/${booking.bookingId}`);
+          navigate(`/bookings/${shipmentBookingId}`);
         },
         onFailure: (response) => {
           showToast('Payment failed: ' + (response?.error?.description || 'Unknown error'), 'error');
           reset();
-          navigate(`/bookings/${booking.bookingId}`);
+          navigate(`/bookings/${shipmentBookingId}`);
         },
       });
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Booking failed';
+      const msg = err.response?.data?.message || err.message || 'Shipment booking failed';
       showToast(msg, 'error');
     } finally {
       setLoading(false);
@@ -79,8 +83,8 @@ export default function PaymentButton({ passengers, scheduleId, seatIds, disable
   };
 
   return (
-    <Button onClick={handlePay} loading={loading} disabled={disabled} className="w-full text-base py-3">
-      Confirm & Pay
+    <Button type="button" onClick={handlePay} loading={loading} disabled={disabled} className="booking-payment-button">
+      Confirm & Pay <span aria-hidden="true">→</span>
     </Button>
   );
 }

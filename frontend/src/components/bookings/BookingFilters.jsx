@@ -8,14 +8,14 @@ const FILTERS = [
 
 export default function BookingFilters({ active, onChange }) {
   return (
-    <div className="flex flex-wrap gap-2 mb-6">
+    <div className="shipment-filters" role="group" aria-label="Filter shipments by status">
       {FILTERS.map((f) => (
         <button
           key={f.value}
+          type="button"
           onClick={() => onChange(f.value)}
-          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            active === f.value ? 'bg-primary-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
+          aria-pressed={active === f.value}
+          className={active === f.value ? 'is-active' : ''}
         >
           {f.label}
         </button>

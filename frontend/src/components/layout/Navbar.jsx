@@ -1,57 +1,57 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore();
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  const closeMenu = () => setMenuOpen(false);
   const handleLogout = () => {
+    closeMenu();
     logout();
     navigate('/login');
   };
+  const navClass = ({ isActive }) => `editorial-nav-link${isActive ? ' is-active' : ''}`;
 
   return (
-    <nav className="bg-primary-900 text-white shadow-lg sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl tracking-wide">
-            <span className="bg-white text-primary-900 rounded px-1.5 py-0.5 text-sm font-black">CF</span>
-            <span>CargoFlow</span>
-          </Link>
+    <header className="editorial-header">
+      <nav className="editorial-shell editorial-navbar" aria-label="Primary navigation">
+        <Link to="/" className="editorial-wordmark" onClick={closeMenu} aria-label="CargoFlow home">
+          <span className="wordmark-chevron" aria-hidden="true" />
+          <span>CargoFlow</span>
+        </Link>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Link to="/search" className="px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-800 transition-colors">
-              Search
-            </Link>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          aria-expanded={menuOpen}
+          aria-controls="primary-menu"
+          aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span /><span /><span />
+        </button>
 
+        <div id="primary-menu" className={`editorial-menu${menuOpen ? ' is-open' : ''}`}>
+          <div className="editorial-menu-links">
+            <NavLink to="/search" className={navClass} onClick={closeMenu}>Search</NavLink>
+            {isAuthenticated && <NavLink to="/bookings" className={navClass} onClick={closeMenu}>My Shipments</NavLink>}
+            <a href={location.pathname === '/' ? '#how-it-works' : '/#how-it-works'} className="editorial-nav-link" onClick={closeMenu}>How It Works</a>
+            {isAuthenticated && user?.role === 'ADMIN' && <NavLink to="/admin" className={navClass} onClick={closeMenu}>Admin</NavLink>}
+          </div>
+
+          <div className="editorial-account">
             {isAuthenticated ? (
-              <>
-                <Link to="/bookings" className="px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-800 transition-colors">
-                  My Bookings
-                </Link>
-                <Link to="/admin" className="px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-800 transition-colors">
-                  Admin
-                </Link>
-                <div className="flex items-center gap-2 ml-2 pl-2 border-l border-primary-700">
-                  <span className="text-sm hidden sm:inline text-primary-200">
-                    {user?.firstName}
-                  </span>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-primary-800 hover:bg-primary-700 transition-colors"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </>
+              <><span className="account-name">{user?.firstName || 'Account'}</span><button type="button" className="editorial-signin" onClick={handleLogout}>Log out</button></>
             ) : (
-              <Link to="/login" className="px-3 py-1.5 rounded-lg text-sm font-medium bg-accent-700 hover:bg-accent-600 transition-colors">
-                Login
-              </Link>
+              <Link to="/login" className="editorial-signin" onClick={closeMenu}>Sign in</Link>
             )}
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }
